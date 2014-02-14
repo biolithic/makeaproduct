@@ -1,0 +1,106 @@
+<?php 
+function makeaproduct_form_alter(&$form, &$form_state, $form_id)
+{
+if($form_id == "event_node_form")
+{
+drupal_add_css(drupal_get_path('theme', 'seven') . '/createevent.css');
+}
+
+if($form_id == "product_display_node_form") 
+{
+drupal_add_css(drupal_get_path('theme', 'seven') . '/createevent.css');  
+}
+
+}
+
+function makeaproduct_node_insert($node)
+{
+global $user;
+if ( $node->type == 'event' )
+{
+// $node->field_product['und']['0']['product_id'] = 105;
+$product_type = 'event';
+$values = array (
+        'price' => 0,
+        'currency_code' => commerce_default_currency() ,
+    );
+
+$extras = array(
+        'status' => 1,
+        'uid' => $user->uid,
+        'sku' => $node->nid,
+        'title' => $node->title,
+    );
+
+commerce_installments_create_product ($product_type,$values,$extras,$node);
+}
+}
+
+function commerce_installments_create_product ( $product_type , $values , $extras, $node )
+{
+    $form_state = array ();
+    $form_state[ 'values' ] = $values;
+    $form = array ();
+    $form[ '#parents' ] = array ();
+
+    // Generate a new product object
+    $new_product = commerce_product_new ( $product_type );
+
+    $new_product->status = $extras[ 'status' ];
+    $new_product->uid = $extras[ 'uid' ];
+
+    $new_product->sku = $extras[ 'sku' ];
+    $new_product->title = $extras[ 'title' ];
+    $new_product->created = $new_product->changed = time ();
+    $new_product->field_test456['und']['0']['value'] = $node->field_test456['und']['0']['value'];
+    $new_product->field_test456['und']['0']['timezone'] = $node->field_test456['und']['0']['timezone'];
+    $new_product->field_test456['und']['0']['timezone_db'] = $node->field_test456['und']['0']['timezone_db'];
+    $new_product->field_test456['und']['0']['date_type'] = $node->field_test456['und']['0']['date_type'];
+    
+    $new_product->field_day['und']['0']['tid'] = $node->field_day['und']['0']['tid'];
+    
+    if ( ! empty( $values[ 'original_order' ] ) ) {
+        // field_original_order[und][0][target_id]
+        $order = array ( LANGUAGE_NONE => array ( 0 => array ( 'target_id' => $values[ 'original_order' ] ) ) );
+        $form_state[ 'values' ][ 'field_original_order' ] = $order;
+    }
+
+    if ( ! empty( $values[ 'original_line_item' ] ) ) {
+        // field_original_line_item[und][0][target_id]
+        $line_item = array ( LANGUAGE_NONE => array ( 0 => array ( 'target_id' => $values[ 'original_line_item' ] ) ) );
+        $form_state[ 'values' ][ 'field_original_line_item' ] = $line_item;
+    }
+
+    if ( ! empty( $values[ 'original_product' ] ) ) {
+        $product = array ( LANGUAGE_NONE => array ( 0 => array ( 'target_id' => $values[ 'original_product' ] ) ) );
+        $form_state[ 'values' ][ 'field_original_product' ] = $product;
+    }
+
+    //commerce_price[und][0][amount]
+    $price = array ( LANGUAGE_NONE => array ( 0 => array (
+        'amount' => $values[ 'price' ] ,
+        'currency_code' => $values[ 'currency_code' ],
+    ) ) );
+    $form_state[ 'values' ][ 'commerce_price' ] = $price;
+
+    // Notify field widgets to save their field data
+    field_attach_submit ( 'commerce_product' , $new_product , $form , $form_state );
+
+    commerce_product_save ( $new_product );
+  
+  $num_updated = db_insert('field_data_field_product')
+  ->fields(array(
+  'entity_type' => 'node',
+  'bundle' => 'event',
+  'deleted' => 0,
+  'entity_id' => $node->nid,
+  'revision_id' => $node->nid,
+  'language' => 'und',
+  'delta' => $new_product->product_id,
+  'field_product_product_id' => $new_product->product_id,
+  ))
+  // ->condition('entity_id', $node->nid, '=')
+  ->execute();
+return $new_product->product_id;
+}
+?>

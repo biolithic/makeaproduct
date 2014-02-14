@@ -1,0 +1,8 @@
+name = Make a Product
+description = "Copy a matching product from a created node"
+package = Commerce (contrib)
+core = 7.x
+
+dependencies[] = commerce_product_reference
+dependencies[] = token
+
